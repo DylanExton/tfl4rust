@@ -1,5 +1,6 @@
 mod handlers;
 mod requests;
+mod models;
 
 use axum::{routing::get};
 use utoipa_axum::{
@@ -12,6 +13,7 @@ async fn main() {
     let (app, openapi) = OpenApiRouter::new()
         .routes(routes!(handlers::base::hello))
         .routes(routes!(handlers::base::app_info))
+        .routes(routes!(handlers::lift::get_lift_disruptions))
         .split_for_parts();
 
     // Route for the auto-discovering endpoints route to print the available enpoints that are registered above
