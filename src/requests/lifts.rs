@@ -2,29 +2,31 @@
 // API Docs: https://api-portal.tfl.gov.uk/api-details#api=Disruptions-Lifts-v2
 // Serializes the response to TflLiftDisruption and returns LiftDisruption
 use crate::models::lifts::LiftDisruption;
-use models::lifts::TflLiftDisruption;
-use reqwest;
-use utoipa::r#gen::serde_json;
+use crate::requests::client::TflClient;
 use crate::requests::models;
-pub async fn get_tfl_lift_disruptions() -> Vec<LiftDisruption> {
-    let lift_endpoint: &str = "https://api.tfl.gov.uk/Disruptions/Lifts/v2/";
-    let resp = reqwest::get(lift_endpoint)
-        .await.expect("REASON")
-        .text()
-        .await.expect("REASON");
-    let json_resp: Vec<TflLiftDisruption> = serde_json::from_str::<Vec<TflLiftDisruption>>(&resp).expect("REASON");
-    println!("Retrieved {:#?} lift disruptions from TFL....", json_resp.len());
+use models::lifts::TflLiftDisruption;
+use utoipa::r#gen::serde_json;
+
+pub async fn get_tfl_lift_disruptions(client: &TflClient) -> Vec<LiftDisruption> {
+    let resp = client.get_text("/Disruptions/Lifts/v2/").await;
+    let json_resp: Vec<TflLiftDisruption> =
+        serde_json::from_str::<Vec<TflLiftDisruption>>(&resp).expect("REASON");
+    println!(
+        "Retrieved {:#?} lift disruptions from TFL....",
+        json_resp.len()
+    );
     let mut ret_disruptions: Vec<LiftDisruption> = Vec::new();
     for disruption in json_resp {
-        ret_disruptions.push(transform_disruption(disruption.station_id, disruption.message));
+        ret_disruptions.push(transform_disruption(
+            disruption.station_id,
+            disruption.message,
+        ));
     }
     ret_disruptions
 }
 
 fn transform_disruption(station_code: String, message: String) -> LiftDisruption {
-    let (station, message) = message
-        .split_once(':')
-        .unwrap_or(("", &message));
+    let (station, message) = message.split_once(':').unwrap_or(("", &message));
     let station = title_case(station.trim());
 
     // Strip the "Call us..." message at the end if it exists
@@ -52,7 +54,9 @@ fn title_case(s: &str) -> String {
             let mut chars = word.chars();
 
             match chars.next() {
-                Some(first) => first.to_uppercase().collect::<String>() + &chars.as_str().to_lowercase(),
+                Some(first) => {
+                    first.to_uppercase().collect::<String>() + &chars.as_str().to_lowercase()
+                }
                 None => String::new(),
             }
         })
